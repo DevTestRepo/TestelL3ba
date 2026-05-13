@@ -168,7 +168,14 @@
       const skipBtn = document.getElementById('pwa-skip');
       const iosInstructions = document.getElementById('pwa-ios-instructions');
 
-      if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+      // IMMEDIATE standalone check
+      function checkStandalone() {
+        return window.matchMedia('(display-mode: standalone)').matches || 
+               window.navigator.standalone === true ||
+               document.referrer.includes('android-app://');
+      }
+
+      if (checkStandalone()) {
         overlay.style.display = 'none';
       }
 
@@ -192,18 +199,19 @@
           }
           deferredPrompt = null;
         } else {
-          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-          if (isIOS) {
-            iosInstructions.style.display = 'block';
-            installBtn.style.display = 'none';
-          } else {
-            alert('To install, use your browser menu and select "Install App" or "Add to Home Screen".');
-          }
+          // Fallback for iOS and others
+          iosInstructions.style.display = 'block';
+          installBtn.style.display = 'none';
         }
       });
 
       skipBtn.addEventListener('click', () => {
         overlay.style.display = 'none';
+      });
+
+      // Also hide if visibility changes and we are now standalone
+      window.addEventListener('visibilitychange', () => {
+        if (checkStandalone()) overlay.style.display = 'none';
       });
 
       var container = document.querySelector("#unity-container");
