@@ -21,7 +21,7 @@
         height: 100%;
         background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
         z-index: 9999;
-        display: flex;
+        display: none; /* Hidden by default */
         flex-direction: column;
         align-items: center;
         justify-content: center;
@@ -133,18 +133,71 @@
       <div class="pwa-content">
         <img src="TemplateData/unity-logo-light.png" alt="App Icon" class="pwa-icon">
         <div class="pwa-title">El Le3ba - The Game</div>
-        <div class="pwa-desc">Install on your home screen for the full mobile experience.</div>
+        <div class="pwa-desc" id="pwa-status">Install on your home screen for the full mobile experience.</div>
         
-        <button id="pwa-install-btn">Add To Home Screen</button>
+        <button id="pwa-install-btn" onclick="handleInstall()">Add To Home Screen</button>
         
         <div id="pwa-ios-instructions">
           1. Tap <svg class="ios-icon" viewBox="0 0 50 50" fill="#007aff"><path d="M30.3,13.7L25,8.4l-5.3,5.3l-1.4-1.4L25,5.6l6.7,6.7L30.3,13.7z M24,30.3V8.4h2v21.9H24z M15,45h20c2.8,0,5-2.2,5-5V20 c0-2.8-2.2-5-5-5h-5v2h5c1.7,0,3,1.3,3,3v20c0,1.7-1.3,3-3,3H15c-1.7,0-3-1.3-3-3V20c0-1.7,1.3-3,3-3h5v-2h-5c-2.8,0-5,2.2-5,5v20 C10,42.8,12.2,45,15,45z"/></svg> <b>Share</b><br>
           2. Select <b>Add to Home Screen</b>
         </div>
 
-        <div id="pwa-skip">Continue in Browser</div>
+        <div id="pwa-skip" onclick="hidePWA()">Continue in Browser</div>
       </div>
     </div>
+
+    <script>
+      let deferredPrompt;
+      const overlay = document.getElementById('pwa-overlay');
+      const installBtn = document.getElementById('pwa-install-btn');
+      const iosInstructions = document.getElementById('pwa-ios-instructions');
+      const pwaStatus = document.getElementById('pwa-status');
+
+      function checkStandalone() {
+        return window.matchMedia('(display-mode: standalone)').matches || 
+               window.navigator.standalone === true ||
+               document.referrer.includes('android-app://');
+      }
+
+      function hidePWA() {
+        overlay.style.display = 'none';
+      }
+
+      async function handleInstall() {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+            installBtn.style.display = 'none';
+            pwaStatus.innerHTML = "<b>Success!</b> Now close this browser and open the game from your home screen.";
+          }
+          deferredPrompt = null;
+        } else {
+          iosInstructions.style.display = 'block';
+          installBtn.style.display = 'none';
+        }
+      }
+
+      // Show overlay only if mobile and NOT standalone
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile && !checkStandalone()) {
+        overlay.style.display = 'flex';
+      }
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+      }
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+      });
+
+      window.addEventListener('visibilitychange', () => {
+        if (checkStandalone()) hidePWA();
+      });
+    </script>
+
     <div id="unity-container" class="unity-desktop">
       <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
       <div id="unity-loading-bar">
@@ -161,59 +214,6 @@
       </div>
     </div>
     <script>
-      // PWA Logic
-      let deferredPrompt;
-      const overlay = document.getElementById('pwa-overlay');
-      const installBtn = document.getElementById('pwa-install-btn');
-      const skipBtn = document.getElementById('pwa-skip');
-      const iosInstructions = document.getElementById('pwa-ios-instructions');
-
-      // IMMEDIATE standalone check
-      function checkStandalone() {
-        return window.matchMedia('(display-mode: standalone)').matches || 
-               window.navigator.standalone === true ||
-               document.referrer.includes('android-app://');
-      }
-
-      if (checkStandalone()) {
-        overlay.style.display = 'none';
-      }
-
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js');
-      }
-
-      window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-      });
-
-      installBtn.addEventListener('click', async () => {
-        if (deferredPrompt) {
-          deferredPrompt.prompt();
-          const { outcome } = await deferredPrompt.userChoice;
-          if (outcome === 'accepted') {
-            installBtn.style.display = 'none';
-            document.querySelector('.pwa-desc').innerHTML = "<b>Success!</b> Now close this browser and open the game from your home screen.";
-            skipBtn.innerHTML = "Start in Browser anyway";
-          }
-          deferredPrompt = null;
-        } else {
-          // Fallback for iOS and others
-          iosInstructions.style.display = 'block';
-          installBtn.style.display = 'none';
-        }
-      });
-
-      skipBtn.addEventListener('click', () => {
-        overlay.style.display = 'none';
-      });
-
-      // Also hide if visibility changes and we are now standalone
-      window.addEventListener('visibilitychange', () => {
-        if (checkStandalone()) overlay.style.display = 'none';
-      });
-
       var container = document.querySelector("#unity-container");
       var canvas = document.querySelector("#unity-canvas");
       var loadingBar = document.querySelector("#unity-loading-bar");
